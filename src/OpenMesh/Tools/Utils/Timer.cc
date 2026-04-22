@@ -46,10 +46,8 @@
 #include <OpenMesh/Core/System/config.h>
 #if defined(OM_CC_MIPS)
 #  include <math.h>
-#  include <stdio.h>
 #else
 #  include <cmath>
-#  include <cstdio>
 #endif
 // ---windows 32 --------------------------------------------------------------
 #if defined(WIN32) && (defined(_MSC_VER) || defined(__INTEL_COMPILER) || defined (__MINGW32__) )
@@ -69,6 +67,8 @@
 #endif
 
 #include "Timer.hh"
+#include <sstream>
+#include <iomanip>
 // ----------------------------------------------------------------------------
 
 // ------------------------------------------------------------- namespace ----
@@ -326,115 +326,84 @@ std::string Timer::as_string(Timer::Format format)
    return as_string(impl_->seconds(),format);
 }
 
-std::string Timer::as_string(double seconds, Timer::Format format)
+std::string Timer::as_string(double seconds, Format format)
 {
-   char string[32];
+    double abs_sec = std::abs(seconds);
+    int integer_part = static_cast<int>(abs_sec);
+    double fraction  = abs_sec - integer_part;
+    int hour = integer_part / 3600;
+    int min  = (integer_part % 3600) / 60;
+    int sec  = integer_part % 60;
 
-   double fraction;
-   double integer;
-   unsigned long t;
-//    double rest;
-   short  hour,min,sec;
-   bool   negative = false;
-   
-   if ( seconds < 0 )
-   {
-      negative = true;
-      seconds *= -1;
-   }
-   
-   fraction = modf(seconds,&integer);
+    std::ostringstream ss;
+    if (seconds < 0) ss << "-";
+    ss << std::setfill('0');
 
-   t = (unsigned long)integer;
+    switch(format) {
+    case Timer::Seconds:
+        ss << std::fixed << std::setprecision(3) << abs_sec << "s";
+        break;
+    case Timer::HSeconds:
+        ss << std::fixed << std::setprecision(3) << abs_sec * 1e2 << "cs";
+        break;
+    case Timer::MSeconds:
+        ss << std::fixed << std::setprecision(3) << abs_sec * 1e3 << "ms";
+        break;
+    case Timer::MicroSeconds:
+        ss << std::fixed << std::setprecision(1) << abs_sec * 1e6 << "\xb5s";
+        break;
+    case Timer::NanoSeconds:
+        ss << std::fixed << std::setprecision(1) << abs_sec * 1e9 << "ns";
+        break;
+    case Timer::Hours:
+        ss << std::setw(2) << hour << "h:"
+           << std::setw(2) << min << "m:"
+           << std::setw(2) << sec << "s";
+        break;
+    case Timer::Minutes: {
+        int frac = static_cast<int>(fraction * 100);
+        ss << std::setw(2) << min << "m:"
+           << std::setw(2) << sec << "."
+           << std::setw(2) << frac << "s";
+        break;
+    }
+    case Timer::Long: {
+        long long frac = static_cast<long long>(fraction * 1e12);
+        ss << std::setw(2) << hour << "h:"
+           << std::setw(2) << min << "m:"
+           << std::setw(2) << sec << "."
+           << std::setw(12) << frac << "s";
+        break;
+    }
+    case Timer::Automatic: {
+        if (hour > 0 || min > 0) {
+            if (hour > 0)
+                ss << std::setw(2) << hour << "h:";
+            ss << std::setw(2) << min << "m:"
+               << std::setw(2) << sec << "s";
+        } else if (integer_part > 0) {
+            ss << std::fixed << std::setprecision(3) << abs_sec << "s";
+        } else if      (fraction * 1e2 > 0.1) {
+            ss << std::fixed << std::setprecision(3) << fraction * 1e2 << "cs";
+        } else if (fraction * 1e3 > 0.1) {
+            ss << std::fixed << std::setprecision(3) << fraction * 1e3 << "ms";
+        } else if (fraction * 1e6 > 0.1) {
+            ss << std::fixed << std::setprecision(1) << fraction * 1e6 << "\xb5s";
+        } else if (fraction * 1e9 > 0.1) {
+            ss << std::fixed << std::setprecision(1) << fraction * 1e9 << "ns";
+        } else {
+            ss << std::fixed << std::setprecision(1) << fraction * 1e12 << "ps";
+        }
+        break;
+    }
+    default:
+        ss << std::fixed << std::setprecision(3) << abs_sec << "s";
+        break;
+    }
 
-   hour = short( t / 3600L );
-   t   %= 3600L;
-   min  = short( t / 60L );
-   t   %= 60L;
-   sec  = short( t );
-//    rest = (double)t + fraction;
-
-   char *ptr = string;
-   if (negative)
-      *ptr++ = '-';
-   
-   switch(format)
-   {
-   case Timer::Automatic:     
-      if (hour)
-         ptr += sprintf(ptr,"%02dh:",hour);
-
-      if (min)
-         ptr += sprintf(ptr,"%02dm:",min);
-      else if (ptr>string && hour)
-         ptr += sprintf(ptr,"00m:");
-
-      if (sec)
-         ptr += sprintf(ptr,"%02d",sec);
-      else if (ptr>string && min)
-         ptr += sprintf(ptr,"00");
-
-      if (!hour && !min) // higher resolution necessary
-      {
-         if (ptr > string && sec)
-         {
-            sprintf(ptr,".%.3fs",fraction);
-            ptr++;
-            while(*(ptr+2))
-            { 
-               *ptr = *(ptr+2);
-               ptr++;
-            }
-            *ptr = '\0';
-         }
-         else if ( fraction * 1e2 > 0.1)
-            sprintf(ptr,"%.3fcs",fraction*1.e2);
-         else if ( fraction * 1e3 > 0.1)
-            sprintf(ptr,"%.3fms",fraction*1.e3);
-         else if ( fraction * 1e6 > 0.1)
-            sprintf(ptr,"%.1f\xb5s",fraction*1.e6);
-         else if ( fraction * 1e9 > 0.1)
-            sprintf(ptr,"%.1fns",fraction*1.e9);
-         else
-            sprintf(ptr,"%.1fps",fraction*1.e12);            
-      } else // append a 's' for seconds!
-      {
-         ptr[0] = 's';
-         ptr[1] = '\0';
-      }
-      break;
-   case Timer::Long:
-      ptr += sprintf(ptr,"%02dh:%02dm:%02d",hour,min,sec);
-      sprintf(ptr,".%.12fs",fraction);
-      ptr++;
-      while(*(ptr+2))
-      { 
-         *ptr = *(ptr+2);
-         ptr++;
-      }
-      *ptr = '\0';
-      break;
-   case Timer::Hours:
-      sprintf(ptr,"%02dh:%02dm:%02ds",hour,min,sec); break;
-   case Timer::Minutes:
-      ptr += sprintf(ptr,"%02dm:%02d", min, sec);
-      sprintf(ptr,".%.2fs",fraction);
-      ptr++;
-      while(*(ptr+2))
-      { 
-         *ptr = *(ptr+2);
-         ptr++;
-      }
-      *ptr = '\0';
-      break;
-   case Timer::Seconds: sprintf(ptr,"%.3fs",seconds); break;
-   case Timer::HSeconds: sprintf(ptr,"%.3fcs",seconds*1e2); break;
-   case Timer::MSeconds:  sprintf(ptr,"%.3fms",seconds*1e3); break;
-   case Timer::MicroSeconds: sprintf(ptr,"%.1f\xb5s",seconds*1e6); break;
-   case Timer::NanoSeconds: sprintf(ptr,"%.1fns",seconds*1e9); break;
-   }
-   return string;
+    return ss.str();
 }
+
 
 // ============================================================================
 } // END_NS_UTILS
@@ -444,4 +413,3 @@ std::string Timer::as_string(double seconds, Timer::Format format)
 // ============================================================================
 // end of file Timer.cc
 // ============================================================================
-

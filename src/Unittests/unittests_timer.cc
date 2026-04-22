@@ -96,7 +96,7 @@ TEST(Timer, AsString_ZeroAllFormats) {
 }
 
 
-TEST(Timer, DISABLED_AsString_EdgeCases) {
+TEST(Timer, AsString_EdgeCases) {
     EXPECT_EQ(OpenMesh::Utils::Timer::as_string(65.994, OpenMesh::Utils::Timer::Minutes), "01m:05.99s");
     EXPECT_EQ(OpenMesh::Utils::Timer::as_string(65.995, OpenMesh::Utils::Timer::Minutes), "01m:05.99s");
     EXPECT_EQ(OpenMesh::Utils::Timer::as_string(65.00, OpenMesh::Utils::Timer::Minutes), "01m:05.00s");
