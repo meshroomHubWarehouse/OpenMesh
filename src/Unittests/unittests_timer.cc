@@ -94,3 +94,13 @@ TEST(Timer, AsString_ZeroAllFormats) {
     EXPECT_EQ(OpenMesh::Utils::Timer::as_string(0.0, OpenMesh::Utils::Timer::MicroSeconds), "0.0\xB5s");
     EXPECT_EQ(OpenMesh::Utils::Timer::as_string(0.0, OpenMesh::Utils::Timer::NanoSeconds), "0.0ns");
 }
+
+
+TEST(Timer, DISABLED_AsString_EdgeCases) {
+    EXPECT_EQ(OpenMesh::Utils::Timer::as_string(65.994, OpenMesh::Utils::Timer::Minutes), "01m:05.99s");
+    EXPECT_EQ(OpenMesh::Utils::Timer::as_string(65.995, OpenMesh::Utils::Timer::Minutes), "01m:05.99s");
+    EXPECT_EQ(OpenMesh::Utils::Timer::as_string(65.00, OpenMesh::Utils::Timer::Minutes), "01m:05.00s");
+    EXPECT_EQ(OpenMesh::Utils::Timer::as_string(123.999, OpenMesh::Utils::Timer::Minutes), "02m:03.99s");
+    EXPECT_EQ(OpenMesh::Utils::Timer::as_string(3661.999999999999, OpenMesh::Utils::Timer::Long), "01h:01m:01.999999999999s");
+    EXPECT_EQ(OpenMesh::Utils::Timer::as_string(3661.0, OpenMesh::Utils::Timer::Long), "01h:01m:01.000000000000s");
+}
