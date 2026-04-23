@@ -40,6 +40,7 @@ set(UNITTEST_SRC
   unittests_stripifier.cc
   unittests_subdivider_adaptive.cc
   unittests_subdivider_uniform.cc
+  unittests_timer.cc
   unittests_traits.cc
   unittests_trimesh_circulator_current_halfedge_handle_replacement.cc
   unittests_trimesh_circulator_edge_face.cc
