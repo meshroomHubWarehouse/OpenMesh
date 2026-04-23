@@ -22,6 +22,7 @@
 <b>Tools</b>
 <ul>
 <li>HoleFiller: Fix crash in specific unfillable holes (Thanks to M. Wechner for the patch) </li>
+<li>Timer: Reworked timer to get rid of several warnings. (Thanks to Martin Heistermann for the work)</li>
 </ul>
 
 <b>Build System</b>
