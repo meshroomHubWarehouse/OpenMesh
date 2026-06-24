@@ -94,17 +94,18 @@ typename ModAspectRatioT<MeshT>::Scalar ModAspectRatioT<MeshT>::aspectRatio(
 
 template<class MeshT>
 void ModAspectRatioT<MeshT>::initialize() {
-  typename Mesh::FaceIter f_it, f_end(mesh_.faces_end());
-  typename Mesh::FVIter fv_it;
 
-  for (f_it = mesh_.faces_begin(); f_it != f_end; ++f_it) {
-    fv_it = mesh_.fv_iter(*f_it);
-    typename Mesh::Point& p0 = mesh_.point(*fv_it);
-    typename Mesh::Point& p1 = mesh_.point(*(++fv_it));
-    typename Mesh::Point& p2 = mesh_.point(*(++fv_it));
+ for (const auto& fh : mesh_.faces())
+  {
+    auto fv_it = mesh_.cfv_iter(fh);
 
-    mesh_.property(aspect_, *f_it) = static_cast<typename Mesh::Scalar>(1.0) / aspectRatio(p0, p1, p2);
+    const typename Mesh::Point& p0 = mesh_.point(*fv_it);
+    const typename Mesh::Point& p1 = mesh_.point(*(++fv_it));
+    const typename Mesh::Point& p2 = mesh_.point(*(++fv_it));
+
+    mesh_.property(aspect_, fh) = static_cast<typename Mesh::Scalar>(1.0) / aspectRatio(p0, p1, p2);
   }
+
 }
 
 //-----------------------------------------------------------------------------
