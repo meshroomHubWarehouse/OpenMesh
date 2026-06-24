@@ -17,6 +17,7 @@
 <ul>
 <li>Changed Property Container checks for correct types. Speeds up Debug builds (Thanks to G. Kuklin for the patch) </li>
 <li>Some minor cleanups to avoid warnings.</li>
+<li>Bugfix for Vector apply function which was broken</li>
 </ul>
 
 <b>Tools</b>

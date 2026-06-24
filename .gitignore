@@ -16,3 +16,4 @@ debian/stamp*
 debian/.debhelper
 debian/libopenmesh*
 obj-x86_64-linux-gnu
+.vscode
