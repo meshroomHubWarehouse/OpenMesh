@@ -103,7 +103,7 @@ void ModAspectRatioT<MeshT>::initialize() {
     const typename Mesh::Point& p1 = mesh_.point(*(++fv_it));
     const typename Mesh::Point& p2 = mesh_.point(*(++fv_it));
 
-    mesh_.property(aspect_, *f_it) = static_cast<typename Mesh::Scalar>(1.0) / aspectRatio(p0, p1, p2);
+    mesh_.property(aspect_, fh) = static_cast<typename Mesh::Scalar>(1.0) / aspectRatio(p0, p1, p2);
   }
 
 }
