@@ -67,6 +67,7 @@ set(UNITTEST_SRC
   unittests_tutorials.cc
   unittests_vdpm.cc
   unittests_vector_type.cc
+  unittests_vector_apply.cc
 )
 
 if (NOT DEFINED OPENMESH_BUILD_UNIT_TESTS)
