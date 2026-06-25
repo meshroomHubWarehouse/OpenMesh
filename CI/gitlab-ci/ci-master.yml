@@ -40,7 +40,6 @@ trigger_openmesh-python-rebuild:
   stage: deploy
   only:
      - master
-  dependencies: []
   trigger:
     project: OpenMesh/openmesh-python
 
