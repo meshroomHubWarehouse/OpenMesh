@@ -64,20 +64,23 @@ namespace Decimater {
 template<class MeshT>
 typename ModAspectRatioT<MeshT>::Scalar ModAspectRatioT<MeshT>::aspectRatio(
     const Point& _v0, const Point& _v1, const Point& _v2) {
-  Point d0 = _v0 - _v1;
-  Point d1 = _v1 - _v2;
 
-  // finds the max squared edge length
-  Scalar l2, maxl2 = sqrnorm(d0);
-  if ((l2 = sqrnorm(d1)) > maxl2)
-    maxl2 = l2;
-  // keep searching for the max squared edge length
-  d1 = _v2 - _v0;
-  if ((l2 = sqrnorm(d1)) > maxl2)
-    maxl2 = l2;
+  // Egde vectors
+  const Point d0 = _v0 - _v1;
+  const Point d1 = _v1 - _v2;
+  const Point d2 = _v2 - _v0;
 
-  // squared area of the parallelogram spanned by d0 and d1
-  Scalar a2 = sqrnorm(d0 % d1);
+  // squared edge lengths
+  const Scalar l0 = sqrnorm(d0);
+  const Scalar l1 = sqrnorm(d1);
+  const Scalar l2 = sqrnorm(d2);
+
+  // find the maximal squared edge length
+  const Scalar maxl2 = std::max(l0, std::max(l1, l2));
+
+  // squared area of the parallelogram spanned by d0 and d2
+  // (twice the triangle's area, magnitude independent of which two edges are chosen)
+  Scalar a2 = sqrnorm(d0 % d2);
 
   // the area of the triangle would be
   // sqrt(a2)/2 or length * height / 2
@@ -87,7 +90,8 @@ typename ModAspectRatioT<MeshT>::Scalar ModAspectRatioT<MeshT>::aspectRatio(
 
   // returns the length of the longest edge
   //         divided by its corresponding height
-  return sqrt((maxl2 * maxl2) / a2);
+  // As maxl2 is positive, we can reduce that from sqrt((maxl2 * maxl2) / a2) to the following:
+  return maxl2 / sqrt(a2);
 }
 
 //-----------------------------------------------------------------------------
