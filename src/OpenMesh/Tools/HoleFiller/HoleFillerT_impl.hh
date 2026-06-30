@@ -258,7 +258,6 @@ HoleFillerT< MeshT >::fairing( std::vector< OpenMesh::SmartFaceHandle >& _faceHa
   OpenMesh::EPropHandleT< bool > edgeProp;
   OpenMesh::VPropHandleT< bool > vertexProp;
   OpenMesh::FPropHandleT< bool > faceProp;
-  OpenMesh::FPropHandleT< bool > orderProp;
 
   if (! mesh_.get_property_handle(edgeProp,"edgeProp") )
     mesh_.add_property( edgeProp, "edgeProp" );
@@ -266,12 +265,9 @@ HoleFillerT< MeshT >::fairing( std::vector< OpenMesh::SmartFaceHandle >& _faceHa
     mesh_.add_property( vertexProp, "vertexProp" ); 
   if (! mesh_.get_property_handle(faceProp,"faceProp") )
     mesh_.add_property( faceProp, "faceProp" ); 
-  if (! mesh_.get_property_handle(orderProp,"orderProp") )
-    mesh_.add_property( orderProp, "orderProp" ); 
 
   //init properties by setting all of them to false
   for (auto fIt : mesh_.faces()) {
-    mesh_.property( orderProp, fIt ) = false;
     mesh_.property( faceProp, fIt ) = false;
   }
 
@@ -301,11 +297,9 @@ HoleFillerT< MeshT >::fairing( std::vector< OpenMesh::SmartFaceHandle >& _faceHa
       }
     }
 
-    /// @TODO, strange iterator at property!
     for (auto fvi : hole_triangle_[i].vertices()){
       //set vertex property for all vertices of the hole
-      for ( auto vfi : fvi.faces() )
-        mesh_.property( vertexProp, fvi ) = true;
+      mesh_.property( vertexProp, fvi ) = true;
     }
   }
 
@@ -340,7 +334,6 @@ HoleFillerT< MeshT >::fairing( std::vector< OpenMesh::SmartFaceHandle >& _faceHa
   mesh_.remove_property(edgeProp);
   mesh_.remove_property(vertexProp);
   mesh_.remove_property(faceProp);
-  mesh_.remove_property(orderProp);
 
   // Do the patch fairing
   bool did_refine = true;
