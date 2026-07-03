@@ -76,39 +76,32 @@ public:
   void fill_hole( typename MeshT::EdgeHandle _eh, int _stages = 3 );
 
 private:
+  void fairing();
 
+  // A weight is a tuple of area and maximum dihedral angle
+  //
 
-    void fairing( std::vector< OpenMesh::SmartFaceHandle >& _faceHandles );
+  class Weight {
+  public:
+    Weight() : angle_(180), area_(FLT_MAX) {}
+    Weight(Scalar _angle, Scalar _area) : angle_(_angle), area_(_area) {}
+    ~Weight() {}
 
-    // Remove degenerated faces from the filling
-    void removeDegeneratedFaces( std::vector< typename MeshT::FaceHandle >& _faceHandles );
+    Scalar angle() const { return angle_; }
+    Scalar area() const { return area_; }
 
-    // A weight is a tuple of area and maximum dihedral angle
-    //
+    Weight operator+(const Weight &_other) const {
+      return Weight(std::max(angle(), _other.angle()), area() + _other.area());
+    }
 
-    class Weight {
-    public:
+    bool operator<(const Weight &_rhs) const {
+      return (angle() < _rhs.angle() ||
+              (angle() == _rhs.angle() && area() < _rhs.area()));
+    }
 
-        Weight() : angle_( 180 ), area_( FLT_MAX ) {}
-        Weight( Scalar _angle, Scalar _area ) : angle_( _angle ), area_( _area ) {}
-        ~Weight() {}
-
-        Scalar angle() const { return angle_; }
-        Scalar area()  const { return area_; }
-
-        Weight operator+( const Weight & _other ) const {
-            return Weight( std::max( angle(), _other.angle() ),
-                          area() + _other.area() );
-        }
-
-        bool operator<( const Weight & _rhs ) const {
-            return ( angle() < _rhs.angle() ||
-                    ( angle() == _rhs.angle() && area() < _rhs.area() ) );
-        }
-
-    private:
-        Scalar angle_;
-        Scalar area_;
+  private:
+    Scalar angle_;
+    Scalar area_;
     };
 
   // Refine a face
@@ -145,6 +138,8 @@ private:
 
   MeshT & mesh_;
   OpenMesh::VPropHandleT< Scalar > scale_;
+  OpenMesh::VPropHandleT<bool> vertexProp_;
+  OpenMesh::FPropHandleT<bool> faceProp_;
 
   /*
                  HOLE

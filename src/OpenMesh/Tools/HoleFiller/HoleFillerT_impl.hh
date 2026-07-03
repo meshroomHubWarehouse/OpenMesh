@@ -76,6 +76,10 @@ HoleFillerT< MeshT >::~HoleFillerT()
 
   if ( mesh_.get_property_handle(scale_,"scale") )
     mesh_.remove_property( scale_ );
+  if (mesh_.get_property_handle(vertexProp_, "vertexProp"))
+    mesh_.remove_property(vertexProp_);
+  if (!mesh_.get_property_handle(faceProp_, "faceProp"))
+    mesh_.remove_property(faceProp_);
 }
 
 
@@ -227,10 +231,8 @@ HoleFillerT< MeshT >::fill_hole(typename MeshT::EdgeHandle _eh, int _stages )
       return;
     
     omlog() << "  Stage 2 : Fairing the filling ... " << std::endl;
-    
-    std::vector< OpenMesh::SmartFaceHandle > handles = hole_triangle_;
-    
-    fairing(handles);
+
+    fairing();
 
     //select all new vertices
     typename MeshT::VertexIter old_end = ++typename MeshT::VertexIter(mesh_,old_last_handle);
@@ -246,41 +248,21 @@ HoleFillerT< MeshT >::fill_hole(typename MeshT::EdgeHandle _eh, int _stages )
 
 
 /// path fairing
-template< class MeshT >
-void
-HoleFillerT< MeshT >::fairing( std::vector< OpenMesh::SmartFaceHandle >& _faceHandles ){
+template <class MeshT> void HoleFillerT<MeshT>::fairing() {
 
   //generate vector of all edges
   hole_edge_.clear();
 
-  hole_triangle_ = _faceHandles;
-
-  OpenMesh::EPropHandleT< bool > edgeProp;
-  OpenMesh::VPropHandleT< bool > vertexProp;
-  OpenMesh::FPropHandleT< bool > faceProp;
-
-  if (! mesh_.get_property_handle(edgeProp,"edgeProp") )
-    mesh_.add_property( edgeProp, "edgeProp" );
-  if (! mesh_.get_property_handle(vertexProp,"vertexProp") )
-    mesh_.add_property( vertexProp, "vertexProp" ); 
-  if (! mesh_.get_property_handle(faceProp,"faceProp") )
-    mesh_.add_property( faceProp, "faceProp" ); 
-
-  //init properties by setting all of them to false
-  for (auto fIt : mesh_.faces()) {
-    mesh_.property( faceProp, fIt ) = false;
-  }
-
-  for (auto eIt : mesh_.edges())
-    mesh_.property( edgeProp, eIt ) = false;
-
-  for (auto vIt : mesh_.vertices()) {
-    mesh_.property( vertexProp, vIt ) = false;
-  }
+  // add properties only (once) and only if fairing is done
+  // default initialized to o/false by allocator
+  if (!mesh_.get_property_handle(vertexProp_, "vertexProp"))
+      mesh_.add_property(vertexProp_, "vertexProp");
+  if (!mesh_.get_property_handle(faceProp_, "faceProp"))
+      mesh_.add_property(faceProp_, "faceProp");
 
   //set face property
   for (uint i = 0; i < hole_triangle_.size(); i++){
-    mesh_.property( faceProp, hole_triangle_[i] ) = true;
+    mesh_.property(faceProp_, hole_triangle_[i] ) = true;
   }
 
   //set properties
@@ -288,10 +270,9 @@ HoleFillerT< MeshT >::fairing( std::vector< OpenMesh::SmartFaceHandle >& _faceHa
       for (auto fei : hole_triangle_[i].edges()) {
       mesh_.status( fei ).set_locked(true);
       //set edge property for all edges inside the hole (eg not on the hole boundary)
-      if (mesh_.property( faceProp, fei.h0().face() ) &&
-          mesh_.property( faceProp, fei.h1().face() ) ){
+      if (mesh_.property(faceProp_, fei.h0().face()) &&
+          mesh_.property(faceProp_, fei.h1().face())) {
 
-        mesh_.property( edgeProp, fei ) = true;
         hole_edge_.push_back( fei );
         mesh_.status( fei ).set_locked(false);
       }
@@ -299,13 +280,13 @@ HoleFillerT< MeshT >::fairing( std::vector< OpenMesh::SmartFaceHandle >& _faceHa
 
     for (auto fvi : hole_triangle_[i].vertices()){
       //set vertex property for all vertices of the hole
-      mesh_.property( vertexProp, fvi ) = true;
+      mesh_.property( vertexProp_, fvi ) = true;
     }
   }
 
   //calculate scaling weights for vertices
   for (auto vIt : mesh_.vertices())
-    if (mesh_.property(vertexProp, vIt)){
+    if (mesh_.property(vertexProp_, vIt)){
 
       Scalar cnt   = 0;
       Scalar scale = 0;
@@ -313,10 +294,9 @@ HoleFillerT< MeshT >::fairing( std::vector< OpenMesh::SmartFaceHandle >& _faceHa
       for ( auto voh_it : vIt.outgoing_halfedges())
       {
 
-        if (voh_it.face().is_valid() &&
-            voh_it.opp().face().is_valid() &&
-            mesh_.property(faceProp, voh_it.face() ) &&
-            mesh_.property(faceProp, voh_it.opp().face() ))
+        if (voh_it.face().is_valid() && voh_it.opp().face().is_valid() &&
+            mesh_.property(faceProp_, voh_it.face()) &&
+            mesh_.property(faceProp_, voh_it.opp().face()))
           continue;
 
         cnt += 1.0f;
@@ -329,11 +309,15 @@ HoleFillerT< MeshT >::fairing( std::vector< OpenMesh::SmartFaceHandle >& _faceHa
       scale /= cnt;
       
       mesh_.property( scale_, vIt ) = scale;
+
+      // reset vertex property
+      mesh_.property(vertexProp_, vIt) = false;
     }
 
-  mesh_.remove_property(edgeProp);
-  mesh_.remove_property(vertexProp);
-  mesh_.remove_property(faceProp);
+  // reset face property
+  for (uint i = 0; i < hole_triangle_.size(); i++) {
+      mesh_.property(faceProp_, hole_triangle_[i]) = true;
+  }
 
   // Do the patch fairing
   bool did_refine = true;
@@ -373,36 +357,40 @@ HoleFillerT< MeshT >::refine(typename MeshT::FaceHandle _fh )
   // Collect the three edges of the face into e0, e1, e2
 
   typename MeshT::FEIter fei = mesh_.fe_iter( _fh );
-  OpenMesh::SmartEdgeHandle  e0  = *fei; ++fei;
-  OpenMesh::SmartEdgeHandle  e1  = *fei; ++fei;
-  OpenMesh::SmartEdgeHandle  e2  = *fei; ++fei;
-
+  const auto e0 = *fei;
+  ++fei;
+  const auto e1 = *fei;
+  ++fei;
+  const auto e2 = *fei;
+  ++fei;
 
   // Collect the vertices, vertex positions and scale factors of the face.
 
   typename MeshT::FVIter   fvi = mesh_.fv_iter( _fh );
 
-  typename MeshT::VertexHandle    v0 = *fvi; ++fvi;
-  typename MeshT::VertexHandle    v1 = *fvi; ++fvi;
-  typename MeshT::VertexHandle    v2 = *fvi; ++fvi;
+  const auto v0 = *fvi;
+  ++fvi;
+  const auto v1 = *fvi;
+  ++fvi;
+  const auto v2 = *fvi;
+  ++fvi;
 
-  Point p0 = mesh_.point( v0 );
-  Point p1 = mesh_.point( v1 );
-  Point p2 = mesh_.point( v2 );
+  const auto &p0 = mesh_.point(v0);
+  const auto &p1 = mesh_.point(v1);
+  const auto &p2 = mesh_.point(v2);
 
-  Scalar scale0 = mesh_.property( scale_, v0 );
-  Scalar scale1 = mesh_.property( scale_, v1 );
-  Scalar scale2 = mesh_.property( scale_, v2 );
+  const auto scale0 = mesh_.property(scale_, v0);
+  const auto scale1 = mesh_.property(scale_, v1);
+  const auto scale2 = mesh_.property(scale_, v2);
 
   // Interpolate the scale factor.
 
-  Scalar scale = ( scale0 + scale1 + scale2 ) / 3.0f;
-  Point center = typename MeshT::Scalar(1.0/3.0) * ( p0 + p1 + p2 );
+  const auto scale = (scale0 + scale1 + scale2) / 3.0f;
+  const auto center = typename MeshT::Scalar(1.0 / 3.0) * (p0 + p1 + p2);
 
-  Scalar d0 = 1.0f * norm( p0 - center );
-  Scalar d1 = 1.0f * norm( p1 - center );
-  Scalar d2 = 1.0f * norm( p2 - center );
-
+  const auto d0 = 1.0f * norm(p0 - center);
+  const auto d1 = 1.0f * norm(p1 - center);
+  const auto d2 = 1.0f * norm(p2 - center);
 
   //dont split triangles which tend to degenerate
   if ( (d0 + d1 + d2) / 3.0f < scale) return false;
@@ -462,18 +450,18 @@ HoleFillerT< MeshT >::relax_edge( OpenMesh::SmartEdgeHandle _eh )
 
   // Abbreviations for the two halfedges of _eh
 
-  OpenMesh::SmartHalfedgeHandle h0 = _eh.h0();
-  OpenMesh::SmartHalfedgeHandle h1 = _eh.h1();
+  const auto &h0 = _eh.h0();
+  const auto &h1 = _eh.h1();
 
   // Get the two end-vertices u and v of the edge
-	 
-  Point u( mesh_.point( h0.to() ) );
-  Point v( mesh_.point( h1.to() ) );
+
+  const auto &u = mesh_.point(h0.to());
+  const auto &v = mesh_.point(h1.to());
 
   // Get the two opposing vertices a and b
-    
-  Point a( mesh_.point( h0.next().to() ) );
-  Point b( mesh_.point( h1.next().to() ) );
+
+  const auto &a = mesh_.point(h0.next().to());
+  const auto &b = mesh_.point(h1.next().to());
 
   // If the circumsphere criterion is fullfilled AND if the flip is
   // topologically admissible, we do it.
@@ -506,27 +494,30 @@ HoleFillerT< MeshT >::in_circumsphere( const Point & _x,
 				    const Point & _b,
 				    const Point & _c ) const
 {
-  Point ab = _b - _a;
-  Point ac = _c - _a;
+  const auto ab = _b - _a;
+  const auto ac = _c - _a;
 
-  Scalar a00 = -2.0f * ( dot(ab , _a ) );
-  Scalar a01 = -2.0f * ( dot(ab , _b ) );
-  Scalar a02 = -2.0f * ( dot(ab , _c ) );
-  Scalar b0 = norm(_a)*norm(_a) - norm(_b)*norm(_b);
+  const auto a00 = -2.0f * (dot(ab, _a));
+  const auto a01 = -2.0f * (dot(ab, _b));
+  const auto a02 = -2.0f * (dot(ab, _c));
+  const auto b0 = norm(_a) * norm(_a) - norm(_b) * norm(_b);
 
-  Scalar a10 = -2.0f * ( dot(ac , _a ) );
-  Scalar a11 = -2.0f * ( dot(ac , _b ) );
-  Scalar a12 = -2.0f * ( dot(ac , _c ) );
-  Scalar b1 = norm(_a)*norm(_a) - norm(_c)*norm(_c);
+  const auto a10 = -2.0f * (dot(ac, _a));
+  const auto a11 = -2.0f * (dot(ac, _b));
+  const auto a12 = -2.0f * (dot(ac, _c));
+  const auto b1 = norm(_a) * norm(_a) - norm(_c) * norm(_c);
 
-  typename MeshT::Scalar alpha = -(-a11*a02+a01*a12-a12*b0+b1*a02+a11*b0-a01*b1)
-	                             / (-a11*a00+a11*a02-a10*a02+a00*a12+a01*a10-a01*a12);
-  typename MeshT::Scalar beta  =  (a10*b0-a10*a02-a12*b0+a00*a12+b1*a02-a00*b1)
-	                             / (-a11*a00+a11*a02-a10*a02+a00*a12+a01*a10-a01*a12);
-  typename MeshT::Scalar gamma =  (-a11*a00-a10*b0+a00*b1+a11*b0+a01*a10-a01*b1)
-                                / (-a11*a00+a11*a02-a10*a02+a00*a12+a01*a10-a01*a12);
+  const auto alpha =
+      -(-a11 * a02 + a01 * a12 - a12 * b0 + b1 * a02 + a11 * b0 - a01 * b1) /
+      (-a11 * a00 + a11 * a02 - a10 * a02 + a00 * a12 + a01 * a10 - a01 * a12);
+  const auto beta =
+      (a10 * b0 - a10 * a02 - a12 * b0 + a00 * a12 + b1 * a02 - a00 * b1) /
+      (-a11 * a00 + a11 * a02 - a10 * a02 + a00 * a12 + a01 * a10 - a01 * a12);
+  const auto gamma =
+      (-a11 * a00 - a10 * b0 + a00 * b1 + a11 * b0 + a01 * a10 - a01 * b1) /
+      (-a11 * a00 + a11 * a02 - a10 * a02 + a00 * a12 + a01 * a10 - a01 * a12);
 
-  Point center = alpha * _a + beta * _b + gamma * _c;
+  const auto center = alpha * _a + beta * _b + gamma * _c;
 
   return norm( _x - center ) * norm( _x - center ) < norm( _a - center ) * norm( _a - center );
 }
@@ -685,11 +676,11 @@ template< class MeshT >
 typename MeshT::Scalar
 HoleFillerT< MeshT >::area( typename MeshT::VertexHandle _a, typename MeshT::VertexHandle _b, typename MeshT::VertexHandle _c )
 {
-  Point a( mesh_.point( _a ) );
-  Point b( mesh_.point( _b ) );
-  Point c( mesh_.point( _c ) );
+  const auto &a = mesh_.point(_a);
+  const auto &b = mesh_.point(_b);
+  const auto &c = mesh_.point(_c);
 
-  Point n( cross(( b - a ) , ( c - b )) );
+  const auto n = cross((b - a), (c - b));
 
   return 0.5 * norm(n);
 }
@@ -710,67 +701,18 @@ template< class MeshT >
 typename MeshT::Scalar
 HoleFillerT< MeshT >::dihedral_angle( typename MeshT::VertexHandle _u, typename MeshT::VertexHandle _v, typename MeshT::VertexHandle _a, typename MeshT::VertexHandle _b )
 {
-  Point u( mesh_.point( _u ) );
-  Point v( mesh_.point( _v ) );
-  Point a( mesh_.point( _a ) );
-  Point b( mesh_.point( _b ) );
+  const auto &u = mesh_.point(_u);
+  const auto &v = mesh_.point(_v);
+  const auto &a = mesh_.point(_a);
+  const auto &b = mesh_.point(_b);
 
-  Point n0( cross(( v - u ) , ( a - v )) );
-  Point n1( cross(( u - v ) , ( b - u )) );
-    
+  auto n0 = cross((v - u), (a - v));
+  auto n1 = cross((u - v), (b - u));
+
   normalize(n0);
   normalize(n1);
 
   return acos( dot(n0,n1) ) * 180.0 / M_PI;
-}
-
-
-/// remove degenerated faces
-template< class MeshT >
-void
-HoleFillerT< MeshT >::removeDegeneratedFaces( std::vector< typename MeshT::FaceHandle >& _faceHandles ){
-
-  for (int i = _faceHandles.size()-1; i >= 0 ; i--){
-
-    if ( mesh_.status( _faceHandles[i] ).deleted() ){
-      // face might be deleted because of a previous edge collapse
-      // erase the face from the vector
-      _faceHandles.erase( _faceHandles.begin() + i );
-      continue;
-    }
-
-    //get the vertices (works only on triMeshes)
-    typename MeshT::FaceVertexIterator fvi = mesh_.fv_iter( _faceHandles[i] );
-    Point v0 = mesh_.point( *fvi);
-    ++fvi;
-    Point v1 = mesh_.point( *fvi );
-    ++fvi;
-    Point v2 = mesh_.point( *fvi );
-
-    //check if its degenerated
-    Point v0v1 = v1 - v0;
-    Point v0v2 = v2 - v0;
-    Point n = v0v1 % v0v2; // not normalized !
-    double d = n.sqrnorm();
-
-    if (d < FLT_MIN && d > -FLT_MIN) {
-      // degenerated face found
-      typename MeshT::FaceHalfedgeIterator hIt = mesh_.fh_iter( _faceHandles[i] );
-
-      //try to collapse one of the edges
-      while (hIt.is_valid()){
-        if ( mesh_.is_collapse_ok( *hIt ) ){
-          // collapse the edge to remove the triangle
-          mesh_.collapse( *hIt );
-          // and erase the corresponding face from the vector
-          _faceHandles.erase( _faceHandles.begin() + i );
-          break;
-        } else {
-          ++hIt;
-        }
-      }
-    }
-  }
 }
 
 //=============================================================================
