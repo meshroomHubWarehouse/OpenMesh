@@ -199,7 +199,7 @@ public:
     mesh_.set_point(_ci.v0, _ci.p0);
 
 
-    return (max_angle < 0.5 * normal_deviation_ ? max_angle : float( Base::ILLEGAL_COLLAPSE ));
+    return (max_angle < 0.5 * normal_deviation_ ? static_cast<float>(max_angle) : float( Base::ILLEGAL_COLLAPSE ));
   }
 
   /// set the percentage of normal deviation
