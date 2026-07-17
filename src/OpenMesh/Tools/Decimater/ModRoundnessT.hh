@@ -155,7 +155,7 @@ class ModRoundnessT : public ModBaseT<MeshT>
       C   = vector_cast<Vec3f>(Base::mesh().point( Base::mesh().to_vertex_handle(*voh_it)));
       fhC = Base::mesh().face_handle( *voh_it );
 
-      for (++voh_it; voh_it.is_valid() && (priority==Base::LEGAL_COLLAPSE); ++voh_it)
+      for (++voh_it; voh_it.is_valid() && (priority==static_cast<double>(Base::LEGAL_COLLAPSE)); ++voh_it)
       {
         B   = C;
         fhB = fhC;
