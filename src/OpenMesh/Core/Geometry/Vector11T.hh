@@ -429,6 +429,12 @@ class VectorT {
                     [](const RESULT &l, const Scalar &r) { return l + r * r; });
         }
 
+        /// compute squared euclidean norm (interface compatible with Eigen vectors)
+        template<typename S = Scalar>
+        decltype(std::declval<S>() * std::declval<S>()) squaredNorm() const {
+            return sqrnorm<S>();
+        }
+
         /// compute euclidean norm
         template<typename S = Scalar>
         auto norm() const ->
