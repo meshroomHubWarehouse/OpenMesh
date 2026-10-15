@@ -412,12 +412,12 @@ class VectorT {
             return *this | _rhs;
         }
 
-        //------------------------------------------------------------ euclidean norm
+        //------------------------------------------------------------ Euclidean norm
 
         /// \name Euclidean norm calculations
         //@{
 
-        /// compute squared euclidean norm
+        /// compute squared Euclidean norm
         template<typename S = Scalar>
         decltype(std::declval<S>() * std::declval<S>()) sqrnorm() const {
             static_assert(std::is_same<S, Scalar>::value, "S and Scalar need "
@@ -429,7 +429,13 @@ class VectorT {
                     [](const RESULT &l, const Scalar &r) { return l + r * r; });
         }
 
-        /// compute euclidean norm
+        /// compute squared Euclidean norm (interface compatible with Eigen vectors)
+        template<typename S = Scalar>
+        decltype(std::declval<S>() * std::declval<S>()) squaredNorm() const {
+            return sqrnorm<S>();
+        }
+
+        /// compute Euclidean norm
         template<typename S = Scalar>
         auto norm() const ->
             decltype(std::sqrt(std::declval<VectorT<S, DIM>>().sqrnorm())) {
@@ -491,7 +497,7 @@ class VectorT {
 
         //@}
 
-        //------------------------------------------------------------ euclidean norm
+        //------------------------------------------------------------ non-Euclidean norms
 
         /// \name Non-Euclidean norm calculations
         //@{
